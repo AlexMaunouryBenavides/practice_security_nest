@@ -1,10 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { SignInDto } from 'src/auth/dto/sign-in.dto';
 
 @Injectable()
 export class UserService {
@@ -13,17 +14,16 @@ export class UserService {
     private readonly userRepository: Repository<User>,
   ) {}
   async createUser(createUserDto: CreateUserDto) {
+    const salt = 10;
+    const password = createUserDto.password;
+    const hashPassword = await bcrypt.hash(password, salt);
 
-    const salt= 10;
-    const password= createUserDto.password;
-    const hashPassword= await bcrypt.hash(password, salt);
-
-    const newUser= {
+    const newUser = {
       ...createUserDto,
-      password: hashPassword
-    }
-    
-      return this.userRepository.save(newUser);
+      password: hashPassword,
+    };
+
+    return this.userRepository.save(newUser);
   }
 
   findAll() {
@@ -42,7 +42,7 @@ export class UserService {
     return this.userRepository.delete({ id });
   }
 
-  async readOneByEmail(data: User) {
+  async readOneByEmail(data: SignInDto) {
     return this.userRepository.findOneBy({ email: data.email });
   }
 }

@@ -22,7 +22,7 @@ npm run format          # Prettier
 
 ## Environment
 
-Copy `.env.sample` to `.env` and fill in MySQL credentials before starting:
+Copy `.env.sample` to `.env` and fill in values before starting:
 
 ```
 DB_HOST=localhost
@@ -30,25 +30,35 @@ DB_PORT=3306
 DB_USERNAME=root
 DB_PASSWORD=password
 DB_NAME=practice_auth_nest
-PORT=3000
+PORT=3005
+JWT_SECRET=your_secret_here
 ```
 
-TypeORM runs with `synchronize: true` — schema changes are applied automatically on startup (dev only).
+TypeORM runs with `synchronize: true` — schema changes are applied automatically on startup (dev only). `main.ts` defaults to port `3005` if `PORT` is unset.
 
 ## Architecture
 
-NestJS app wired as follows:
+NestJS app with two feature modules:
 
-- `AppModule` — root module, imports `ConfigModule` (global), `TypeOrmModule` (async, reads DB env vars via `ConfigService`), and feature modules.
-- `src/config/database.config.ts` — TypeORM async factory; centralises all DB config in one place.
-- `src/user/` — the only feature module so far. Standard NestJS resource layout: `UserModule` → `UserController` → `UserService` → TypeORM `Repository<User>`.
-- `User` entity (`src/user/entities/user.entity.ts`) — has `id`, `name`, `email`, `password` columns. Password is stored in plain text at this stage; the project is a security practice exercise focused on adding auth/hashing.
+- `AppModule` — root module, imports `ConfigModule` (global), `TypeOrmModule` (async via `src/config/database.config.ts`), `UserModule`, `AuthModule`.
+- `UserModule` — standard CRUD resource: `UserController` → `UserService` → TypeORM `Repository<User>`. All methods are implemented (create hashes password with bcrypt, find/update/delete hit the DB directly).
+- `AuthModule` — registers `JwtModule` globally (reads `JWT_SECRET` from env, 60s expiry). `AuthService.signIn` looks up user by email, verifies bcrypt hash, returns a signed JWT. `AuthController` receives the token and sets it as an httpOnly cookie (`access_token`).
+- `AuthGuard` — `CanActivate` guard that reads the JWT from the `Authorization: Bearer` header (not the cookie) and attaches the decoded payload to `request.user`.
 
-The project name (`practice_auth_nest`) indicates the goal is to implement authentication and security features (JWT, bcrypt password hashing, guards, etc.) on top of this scaffold.
+### Key types
+
+- `UserRole` (`src/types/user-role.type.ts`) — enum with `USER` and `ADMIN` values; stored as a MySQL enum column on `User`.
+- `JwtPayload` (`src/types/jwt-payload.type.ts`) — `{ sub: number, role: string }` — what `AuthGuard` attaches to `request.user`.
+
+### Auth flow notes
+
+- Login sets the token as a cookie; `AuthGuard` reads from the `Bearer` header — guarded routes currently require the header, not the cookie. This is an intentional practice exercise.
+- `cookie-parser` middleware is registered in `main.ts`.
+- `JwtModule` is global, so `JwtService` can be injected anywhere (e.g. `AuthGuard`) without re-importing `JwtModule`.
 
 ## Key patterns
 
-- Feature modules register their entities with `TypeOrmModule.forFeature([Entity])` and inject repositories via `@InjectRepository`.
-- DTOs live in `src/<feature>/dto/` and use `@nestjs/mapped-types` (`PartialType`) for update DTOs.
-- `UserService` methods are currently stubs — they return placeholder strings and need real implementations.
-- `userRepository` is imported from `typeorm/browser/…` (line 6 of `user.service.ts`) — this should be `typeorm` (the Node.js build), not the browser sub-path.
+- Feature modules register entities with `TypeOrmModule.forFeature([Entity])` and inject repositories via `@InjectRepository`.
+- DTOs live in `src/<feature>/dto/`. Update DTOs use `PartialType` from `@nestjs/mapped-types`.
+- Shared types (enums, interfaces) live in `src/types/`.
+- Guards are applied per-route with `@UseGuards(AuthGuard)` — currently only `GET /user` is protected.
