@@ -3,7 +3,7 @@ import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()
 export class User {
-  constructor(name: string, email: string, password: string, role: UserRole) {
+  constructor(name: string, email: string, password: string, role: UserRole[]) {
     this.name = name;
     this.email = email;
     this.password = password;
@@ -23,5 +23,5 @@ export class User {
   password: string;
 
   @Column({ type: 'enum', enum: UserRole, default: UserRole.USER })
-  role: UserRole;
+  role: UserRole[];
 }
