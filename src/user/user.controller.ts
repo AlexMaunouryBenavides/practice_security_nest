@@ -7,6 +7,7 @@ import {
   Param,
   Delete,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -15,6 +16,7 @@ import { AuthGuard } from 'src/auth/auth.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { UserRole } from 'src/types/user-role.type';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { CacheInterceptor } from '@nestjs/cache-manager';
 
 @Controller('user')
 export class UserController {
@@ -25,8 +27,8 @@ export class UserController {
     return this.userService.createUser(createUserDto);
   }
 
-  @Roles(UserRole.ADMIN)
-  @UseGuards(AuthGuard, RolesGuard)
+  // @Roles(UserRole.ADMIN)
+  // @UseGuards(AuthGuard, RolesGuard)
   @Get()
   findAll() {
     return this.userService.findAll();

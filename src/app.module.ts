@@ -6,16 +6,19 @@ import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { databaseConfig } from './config/database.config';
 import { AuthModule } from './auth/auth.module';
+import { CacheModule } from '@nestjs/cache-manager';
 @Module({
-  imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-    }),
-    TypeOrmModule.forRootAsync(databaseConfig),
+  imports: [CacheModule.register({
+    isGlobal: true
+  }),
+  ConfigModule.forRoot({
+    isGlobal: true,
+  }),
+  TypeOrmModule.forRootAsync(databaseConfig),
     UserModule,
     AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
