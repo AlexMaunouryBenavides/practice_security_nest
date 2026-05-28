@@ -5,7 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { SignInDto } from 'api/src/auth/dto/sign-in.dto';
+import { SignInDto } from '../auth/dto/sign-in.dto';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 
@@ -26,33 +26,33 @@ export class UserService {
       ...createUserDto,
       password: hashPassword,
     };
+    await this.cacheManager.del('users');
 
     return this.userRepository.save(newUser);
   }
 
   async findAll() {
-    const cachedUsers= await this.cacheManager.get<User[]>('users');
+    const cachedUsers = await this.cacheManager.get<User[]>('users');
     console.log('cache =>', cachedUsers);
-    if(!cachedUsers){
-      const allUser= await this.userRepository.find();
-      await this.cacheManager.set('users', allUser, 10000);
+    if (!cachedUsers) {
+      const allUser = await this.userRepository.find();
+      await this.cacheManager.set('users', allUser, 1000 * 60 * 60);
       return allUser;
     }
     return cachedUsers;
   }
 
-
-
-
-  findOne(id: number) {
+  async findOne(id: number) {
     return this.userRepository.findOneBy({ id });
   }
 
-  update(id: number, updateUserDto: UpdateUserDto) {
+  async update(id: number, updateUserDto: UpdateUserDto) {
+    await this.cacheManager.del('users');
     return this.userRepository.update({ id }, updateUserDto);
   }
 
-  remove(id: number) {
+  async remove(id: number) {
+    await this.cacheManager.del('users');
     return this.userRepository.delete({ id });
   }
 

@@ -1,4 +1,4 @@
-import { UserRole } from 'api/src/types/user-role.type';
+import { UserRole } from '../../types/user-role.type';
 
 export class CreateUserDto {
   constructor(name: string, email: string, password: string, role: UserRole[]) {

@@ -12,10 +12,10 @@ import {
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { AuthGuard } from 'api/src/auth/auth.guard';
-import { Roles } from 'api/src/auth/decorators/roles.decorator';
-import { UserRole } from 'api/src/types/user-role.type';
-import { RolesGuard } from 'api/src/auth/guards/roles.guard';
+import { AuthGuard } from '../auth/auth.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '../types/user-role.type';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { CacheInterceptor } from '@nestjs/cache-manager';
 
 @Controller('user')

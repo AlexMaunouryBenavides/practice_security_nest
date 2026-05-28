@@ -1,4 +1,4 @@
-import { UserRole } from 'api/src/types/user-role.type';
+import { UserRole } from '../../types/user-role.type';
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()
