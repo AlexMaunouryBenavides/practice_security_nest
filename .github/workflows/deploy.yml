@@ -159,8 +159,8 @@ jobs:
               context: ./frontend
               push: true
               tags: |
-                 ${{ env.FRONTEND_IMAGE }}:latest
-                 ${{ env.FRONTEND_IMAGE }}:${{ steps.meta.outputs.version }}
+                 practice_security_nest-front:latest
+                 practice_security_nest-front:${{ steps.meta.outputs.version }}
               cache-from: type=gha
               cache-to: type=gha,mode=max
 
