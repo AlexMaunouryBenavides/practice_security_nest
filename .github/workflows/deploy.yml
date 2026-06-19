@@ -10,8 +10,8 @@ on:
 # Variables globales — doivent matcher les images du docker-compose.yml (prod)
 env:
    REGISTRY: docker.io
-   BACKEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/backend
-   FRONTEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/frontend
+   BACKEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}
+   FRONTEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}
 
 jobs:
    # ─────────────────────────────────────────────
