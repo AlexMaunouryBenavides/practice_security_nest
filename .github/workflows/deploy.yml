@@ -1,52 +1,218 @@
-name: Deploy
+name: CI/CD Pipeline — Build, Test & Deploy
 
+# Déclencheurs
 on:
    push:
-      branches:
-         - main
+      branches: [main] # Déclenché à chaque push sur main
+   pull_request:
+      branches: [main] # Tests sur les PRs (sans déploiement)
+
+# Variables globales — doivent matcher les images du docker-compose.yml (prod)
+env:
+   REGISTRY: docker.io
+   BACKEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/backend
+   FRONTEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/frontend
 
 jobs:
-   ci:
+   # ─────────────────────────────────────────────
+   # JOB 1 : Tests backend (NestJS + MySQL)
+   # ─────────────────────────────────────────────
+   test-backend:
+      name: 🧪 Tests Backend
       runs-on: ubuntu-latest
-      steps:
-         - name: Checkout code
-           uses: actions/checkout@v3
 
-         - name: Install dependencies
+      services:
+         # MySQL pour les éventuels tests qui touchent la base.
+         # (Les specs unitaires NestJS sont mockées ; ce service est une sécurité —
+         #  tu peux le retirer si aucun test ne se connecte réellement.)
+         mysql:
+            image: mysql:8
+            env:
+               MYSQL_ROOT_PASSWORD: test
+               MYSQL_DATABASE: test_db
+            ports: ["3306:3306"]
+            options: >-
+               --health-cmd="mysqladmin ping -h localhost -u root -ptest"
+               --health-interval=10s
+               --health-timeout=5s
+               --health-retries=5
+
+      steps:
+         - name: 📥 Checkout code
+           uses: actions/checkout@v4
+
+         - name: 🟢 Setup Node.js
+           uses: actions/setup-node@v4
+           with:
+              node-version: "22"
+              cache: "npm"
+              cache-dependency-path: backend/package-lock.json
+
+         - name: 📦 Install dependencies
            run: npm ci
+           working-directory: backend
 
-         - name: Run lint
+         - name: 🔍 Lint
            run: npm run lint
+           working-directory: backend
 
-   cd:
-      needs: ci
+         - name: 🧪 Run tests
+           run: npm run test
+           working-directory: backend
+           env:
+              DB_HOST: 127.0.0.1
+              DB_PORT: 3306
+              DB_USERNAME: root
+              DB_PASSWORD: test
+              DB_NAME: test_db
+              JWT_SECRET: test-secret-key
+              NODE_ENV: test
+
+         - name: 📊 Test coverage
+           run: npm run test:cov
+           working-directory: backend
+           env:
+              DB_HOST: 127.0.0.1
+              DB_PORT: 3306
+              DB_USERNAME: root
+              DB_PASSWORD: test
+              DB_NAME: test_db
+              JWT_SECRET: test-secret-key
+              NODE_ENV: test
+
+   # ─────────────────────────────────────────────
+   # JOB 2 : Tests frontend (React / Vite)
+   # Pas de script "test" côté front → on lint et on vérifie le build.
+   # ─────────────────────────────────────────────
+   test-frontend:
+      name: 🎨 Tests Frontend
       runs-on: ubuntu-latest
-      steps:
-         - name: Checkout code
-           uses: actions/checkout@v3
 
-         - name: Login to Docker Hub
+      steps:
+         - uses: actions/checkout@v4
+
+         - uses: actions/setup-node@v4
+           with:
+              node-version: "22"
+              cache: "npm"
+              cache-dependency-path: frontend/package-lock.json
+
+         - run: npm ci
+           working-directory: frontend
+
+         - run: npm run lint
+           working-directory: frontend
+
+         - name: 🏗️ Test build
+           run: npm run build
+           working-directory: frontend
+           # Le front appelle /api en relatif (même origine via le reverse proxy nginx),
+           # donc VITE_API_URL n'est pas nécessaire au build.
+
+   # ─────────────────────────────────────────────
+   # JOB 3 : Build & Push images Docker
+   # Seulement sur push main (pas sur les PRs)
+   # ─────────────────────────────────────────────
+   build-and-push:
+      name: 🐳 Build & Push Docker
+      runs-on: ubuntu-latest
+      needs: [test-backend, test-frontend] # Lance uniquement si les tests passent
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+      outputs:
+         image-tag: ${{ steps.meta.outputs.version }}
+
+      steps:
+         - uses: actions/checkout@v4
+
+         - name: 🔑 Login to Docker Hub
            uses: docker/login-action@v3
            with:
               username: ${{ secrets.DOCKER_USERNAME }}
               password: ${{ secrets.DOCKER_PASSWORD }}
 
-         - name: Build and push image
+         - name: 🏷️ Generate image tags
+           id: meta
+           run: |
+              # Tag = SHA court du commit (ex: abc1234)
+              echo "version=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+              echo "Image tag: ${GITHUB_SHA::7}"
+
+         - name: 🏗️ Build & Push Backend
            uses: docker/build-push-action@v5
            with:
-              context: .
+              context: ./backend
               push: true
-              tags: ${{ secrets.DOCKER_USERNAME }}/myapp:latest
+              tags: |
+                 ${{ env.BACKEND_IMAGE }}:latest
+                 ${{ env.BACKEND_IMAGE }}:${{ steps.meta.outputs.version }}
+              cache-from: type=gha
+              cache-to: type=gha,mode=max
 
-         - name: Deploy to server
-           uses: appleboy/ssh-action@v1
+         - name: 🏗️ Build & Push Frontend
+           uses: docker/build-push-action@v5
            with:
-              host: ${{ secrets.SERVER_HOST }}
-              username: ${{ secrets.SERVER_USER }}
-              key: ${{ secrets.SERVER_SSH_KEY }}
-              port: ${{ secrets.SERVER_SSH_PORT }}
+              context: ./frontend
+              push: true
+              tags: |
+                 ${{ env.FRONTEND_IMAGE }}:latest
+                 ${{ env.FRONTEND_IMAGE }}:${{ steps.meta.outputs.version }}
+              cache-from: type=gha
+              cache-to: type=gha,mode=max
+
+   # ─────────────────────────────────────────────
+   # JOB 4 : Déploiement sur le VPS
+   # ─────────────────────────────────────────────
+   deploy:
+      name: 🚀 Deploy to Production
+      runs-on: ubuntu-latest
+      needs: build-and-push
+      environment: production # Environnement GitHub avec protection
+
+      steps:
+         - uses: actions/checkout@v4
+
+         - name: 📤 Copy compose + nginx to VPS
+           uses: appleboy/scp-action@v0.1.7
+           with:
+              host: ${{ secrets.VPS_HOST }}
+              username: ${{ secrets.VPS_USER }}
+              key: ${{ secrets.VPS_SSH_KEY }}
+              port: ${{ secrets.VPS_PORT }}
+              source: "docker-compose.yml,nginx/"
+              target: "/opt/practice_security_nest"
+
+         - name: 🚀 Deploy via SSH
+           uses: appleboy/ssh-action@v1.0.3
+           with:
+              host: ${{ secrets.VPS_HOST }}
+              username: ${{ secrets.VPS_USER }}
+              key: ${{ secrets.VPS_SSH_KEY }}
+              port: ${{ secrets.VPS_PORT }}
               script: |
-                 cd /app
-                 git pull
-                 docker compose pull
-                 docker compose up -d
+                 cd /opt/practice_security_nest
+
+                 # Génère le .env attendu par docker-compose.yml à partir des secrets GitHub
+                 cat > .env <<EOF
+                 DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
+                 IMAGE_TAG=${{ needs.build-and-push.outputs.image-tag }}
+                 DB_USERNAME=${{ secrets.DB_USERNAME }}
+                 DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+                 DB_NAME=${{ secrets.DB_NAME }}
+                 JWT_SECRET=${{ secrets.JWT_SECRET }}
+                 PORT=3000
+                 EOF
+
+                 # Connexion au registre (nécessaire si les images sont privées)
+                 echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+                 # Pull les nouvelles images poussées par le job build-and-push
+                 docker compose -f docker-compose.yml pull
+
+                 # (Re)démarre les services
+                 docker compose -f docker-compose.yml up -d --remove-orphans
+
+                 # Nettoie les anciennes images
+                 docker image prune -f
+
+                 echo "✅ Déploiement réussi !"

@@ -1,0 +1,1836 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Déploiement React + NestJS — Docker & CD</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@300;400;500;600;700&family=Sora:wght@600;700;800&display=swap');
+
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2333;
+    --border: #30363d;
+    --accent: #58a6ff;
+    --accent2: #3fb950;
+    --accent3: #ff7b72;
+    --accent4: #d2a8ff;
+    --accent5: #ffa657;
+    --text: #e6edf3;
+    --muted: #7d8590;
+    --code-bg: #0d1117;
+    --tip-bg: rgba(63, 185, 80, 0.08);
+    --warn-bg: rgba(255, 166, 87, 0.08);
+    --info-bg: rgba(88, 166, 255, 0.08);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    position: fixed;
+    top: 0; left: 0;
+    width: 260px;
+    height: 100vh;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    z-index: 100;
+    padding: 0 0 40px;
+  }
+
+  .sidebar-logo {
+    padding: 24px 20px 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
+  }
+
+  .sidebar-logo h2 {
+    font-family: 'Sora', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .sidebar-logo p {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .sidebar nav a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 20px;
+    text-decoration: none;
+    color: var(--muted);
+    font-size: 13px;
+    border-left: 2px solid transparent;
+    transition: all 0.15s;
+  }
+
+  .sidebar nav a:hover,
+  .sidebar nav a.active {
+    color: var(--text);
+    background: rgba(88,166,255,0.06);
+    border-left-color: var(--accent);
+  }
+
+  .sidebar nav .section-label {
+    padding: 16px 20px 4px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .sidebar nav a.sub { padding-left: 36px; font-size: 12px; }
+
+  /* MAIN */
+  .main {
+    margin-left: 260px;
+    min-height: 100vh;
+    max-width: 900px;
+    padding: 60px 56px 120px;
+  }
+
+  /* HERO */
+  .hero {
+    padding: 56px 0 64px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 72px;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(88,166,255,0.1);
+    border: 1px solid rgba(88,166,255,0.3);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+
+  .hero h1 {
+    font-family: 'Sora', sans-serif;
+    font-size: 42px;
+    font-weight: 800;
+    line-height: 1.15;
+    margin-bottom: 18px;
+    background: linear-gradient(135deg, #e6edf3 30%, #58a6ff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero p {
+    font-size: 16px;
+    color: var(--muted);
+    max-width: 600px;
+    line-height: 1.7;
+    margin-bottom: 32px;
+  }
+
+  .hero-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .tag {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 12px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* SECTIONS */
+  .chapter {
+    margin-bottom: 80px;
+    scroll-margin-top: 32px;
+  }
+
+  .chapter-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 32px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .chapter-num {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #1f3a5f, #1c2333);
+    border: 1px solid rgba(88,166,255,0.3);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Sora', sans-serif;
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .chapter h2 {
+    font-family: 'Sora', sans-serif;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  h3 {
+    font-family: 'Sora', sans-serif;
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text);
+    margin: 32px 0 14px;
+  }
+
+  h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent4);
+    margin: 20px 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  p { margin-bottom: 14px; color: #c9d1d9; }
+
+  /* CODE BLOCKS */
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin: 20px 0;
+    overflow: hidden;
+  }
+
+  .code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .code-header .filename {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .code-header .lang-badge {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--accent);
+    background: rgba(88,166,255,0.1);
+    padding: 2px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+  }
+
+  pre {
+    padding: 20px;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  code { font-family: 'JetBrains Mono', monospace; }
+
+  .inline-code {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    color: #d2a8ff;
+  }
+
+  /* Syntax colors */
+  .kw { color: #ff7b72; }
+  .str { color: #a5d6ff; }
+  .cm { color: #8b949e; font-style: italic; }
+  .fn { color: #d2a8ff; }
+  .num { color: #79c0ff; }
+  .var { color: #ffa657; }
+  .op { color: #ff7b72; }
+  .tag-color { color: #7ee787; }
+  .attr { color: #79c0ff; }
+  .val { color: #a5d6ff; }
+  .env { color: #ffa657; }
+
+  /* CALLOUTS */
+  .callout {
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 20px 0;
+    border-left: 3px solid;
+  }
+
+  .callout.tip {
+    background: var(--tip-bg);
+    border-color: var(--accent2);
+  }
+
+  .callout.warn {
+    background: var(--warn-bg);
+    border-color: var(--accent5);
+  }
+
+  .callout.info {
+    background: var(--info-bg);
+    border-color: var(--accent);
+  }
+
+  .callout-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .callout.tip .callout-title { color: var(--accent2); }
+  .callout.warn .callout-title { color: var(--accent5); }
+  .callout.info .callout-title { color: var(--accent); }
+
+  .callout p { margin: 0; font-size: 13.5px; }
+
+  /* STEP LIST */
+  .steps { counter-reset: step-counter; list-style: none; margin: 20px 0; }
+
+  .steps li {
+    counter-increment: step-counter;
+    display: flex;
+    gap: 16px;
+    margin-bottom: 14px;
+    align-items: flex-start;
+  }
+
+  .steps li::before {
+    content: counter(step-counter);
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1f3a5f, #1c2333);
+    border: 1px solid rgba(88,166,255,0.4);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  /* DIAGRAM */
+  .diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    margin: 24px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    line-height: 2;
+    color: var(--muted);
+    overflow-x: auto;
+  }
+
+  .diagram .d-blue { color: var(--accent); }
+  .diagram .d-green { color: var(--accent2); }
+  .diagram .d-orange { color: var(--accent5); }
+  .diagram .d-purple { color: var(--accent4); }
+  .diagram .d-red { color: var(--accent3); }
+
+  /* TABLE */
+  .table-wrap { overflow-x: auto; margin: 20px 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  th {
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 10px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 10px 16px;
+    border-bottom: 1px solid rgba(48,54,61,0.5);
+    color: #c9d1d9;
+  }
+  tr:last-child td { border-bottom: none; }
+
+  /* PROGRESS BAR */
+  .progress-overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+    margin: 32px 0;
+  }
+
+  .progress-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    text-decoration: none;
+    transition: border-color 0.15s, background 0.15s;
+  }
+
+  .progress-card:hover {
+    border-color: var(--accent);
+    background: var(--surface2);
+  }
+
+  .progress-card .pc-num {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 4px;
+  }
+
+  .progress-card .pc-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.4;
+  }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .highlight { background: rgba(88,166,255,0.12); border-radius: 3px; padding: 0 3px; color: var(--accent); }
+
+  @media (max-width: 900px) {
+    .sidebar { display: none; }
+    .main { margin-left: 0; padding: 32px 20px 80px; }
+    .hero h1 { font-size: 28px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <h2>🚀 DevOps Course</h2>
+    <p>React + NestJS + Docker + CD</p>
+  </div>
+  <nav>
+    <div class="section-label">Introduction</div>
+    <a href="#intro">Vue d'ensemble</a>
+    <a href="#architecture">Architecture cible</a>
+
+    <div class="section-label">Partie 1 — Docker</div>
+    <a href="#ch1">01. Concepts fondamentaux</a>
+    <a href="#ch1-nestjs" class="sub">Dockerfile NestJS</a>
+    <a href="#ch1-react" class="sub">Dockerfile React</a>
+    <a href="#ch1-nginx" class="sub">Nginx config</a>
+
+    <div class="section-label">Partie 2 — Compose</div>
+    <a href="#ch2">02. Docker Compose</a>
+    <a href="#ch2-dev" class="sub">Environnement Dev</a>
+    <a href="#ch2-prod" class="sub">Environnement Prod</a>
+    <a href="#ch2-env" class="sub">Variables d'env</a>
+
+    <div class="section-label">Partie 3 — CI/CD</div>
+    <a href="#ch3">03. Pipeline GitHub Actions</a>
+    <a href="#ch3-build" class="sub">Build & Test</a>
+    <a href="#ch3-push" class="sub">Push Docker Hub</a>
+    <a href="#ch3-deploy" class="sub">Déploiement auto</a>
+
+    <div class="section-label">Partie 4 — Serveur</div>
+    <a href="#ch4">04. Config VPS</a>
+    <a href="#ch4-ssh" class="sub">SSH & sécurité</a>
+    <a href="#ch4-nginx" class="sub">Reverse Proxy</a>
+    <a href="#ch4-ssl" class="sub">SSL Let's Encrypt</a>
+    <a href="#ch4-cron" class="sub">Cron & Renouvellement</a>
+
+    <div class="section-label">Bonus</div>
+    <a href="#ch5">05. Monitoring</a>
+    <a href="#ch6">06. Checklist finale</a>
+  </nav>
+</aside>
+
+<!-- MAIN CONTENT -->
+<main class="main">
+
+  <!-- HERO -->
+  <section class="hero" id="intro">
+    <div class="hero-badge">📦 Cours Complet · Niveau Intermédiaire</div>
+    <h1>Déployer une App<br>React + NestJS avec Docker</h1>
+    <p>De zéro à la production : Dockerisation, Docker Compose, pipeline CI/CD avec GitHub Actions, et déploiement automatique sur un VPS. Chaque étape expliquée avec du code réel.</p>
+    <div class="hero-tags">
+      <span class="tag">React 18</span>
+      <span class="tag">NestJS 10</span>
+      <span class="tag">Docker</span>
+      <span class="tag">Docker Compose</span>
+      <span class="tag">GitHub Actions</span>
+      <span class="tag">Nginx</span>
+      <span class="tag">SSL/HTTPS</span>
+      <span class="tag">PostgreSQL</span>
+    </div>
+  </section>
+
+  <!-- PLAN -->
+  <section id="architecture" class="chapter">
+    <div class="chapter-header">
+      <div class="chapter-num">🗺</div>
+      <h2>Architecture cible</h2>
+    </div>
+
+    <p>Avant de coder, voici ce que nous allons construire. Une architecture classique en production avec séparation claire des services.</p>
+
+    <div class="diagram">
+<pre><span class="d-blue">┌─────────────────────────────────────────────────────────┐</span>
+<span class="d-blue">│                    INTERNET / CLIENT                    │</span>
+<span class="d-blue">└──────────────────────────┬──────────────────────────────┘</span>
+                           │ HTTPS :443
+<span class="d-green">┌──────────────────────────▼──────────────────────────────┐</span>
+<span class="d-green">│               NGINX (Reverse Proxy)                     │</span>
+<span class="d-green">│   /           →  React Frontend  (static files)         │</span>
+<span class="d-green">│   /api/       →  NestJS Backend  :3000                  │</span>
+<span class="d-green">└──────────┬──────────────────────────┬───────────────────┘</span>
+           │                          │
+<span class="d-orange">┌──────────▼──────────┐   ┌──────────▼──────────────────┐</span>
+<span class="d-orange">│  React (dist)       │   │  NestJS API                 │</span>
+<span class="d-orange">│  Servi par Nginx    │   │  container :3000             │</span>
+<span class="d-orange">└─────────────────────┘   └──────────┬───────────────────┘</span>
+                                     │
+                          <span class="d-purple">┌──────────▼───────────────────┐</span>
+                          <span class="d-purple">│  PostgreSQL :5432            │</span>
+                          <span class="d-purple">│  Volume persistant           │</span>
+                          <span class="d-purple">└──────────────────────────────┘</span></pre>
+    </div>
+
+    <div class="progress-overview">
+      <a href="#ch1" class="progress-card">
+        <div class="pc-num">Étape 01</div>
+        <div class="pc-title">Dockerfiles NestJS & React</div>
+      </a>
+      <a href="#ch2" class="progress-card">
+        <div class="pc-num">Étape 02</div>
+        <div class="pc-title">Docker Compose multi-services</div>
+      </a>
+      <a href="#ch3" class="progress-card">
+        <div class="pc-num">Étape 03</div>
+        <div class="pc-title">Pipeline CI/CD GitHub Actions</div>
+      </a>
+      <a href="#ch4" class="progress-card">
+        <div class="pc-num">Étape 04</div>
+        <div class="pc-title">VPS + Nginx + SSL</div>
+      </a>
+      <a href="#ch5" class="progress-card">
+        <div class="pc-num">Bonus</div>
+        <div class="pc-title">Monitoring & Logs</div>
+      </a>
+    </div>
+
+    <h3>Structure du projet</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="filename">structure du projet</span><span class="lang-badge">bash</span></div>
+      <pre><code><span class="cm"># Arborescence complète du projet</span>
+monapp/
+├── <span class="d-blue" style="color:#79c0ff">frontend/</span>              <span class="cm"># Application React</span>
+│   ├── src/
+│   ├── public/
+│   ├── package.json
+│   ├── vite.config.ts
+│   └── <span class="var">Dockerfile</span>         <span class="cm"># ← On va créer ça</span>
+├── <span class="d-blue" style="color:#79c0ff">backend/</span>               <span class="cm"># Application NestJS</span>
+│   ├── src/
+│   ├── package.json
+│   └── <span class="var">Dockerfile</span>         <span class="cm"># ← Et ça</span>
+├── <span class="d-blue" style="color:#79c0ff">nginx/</span>
+│   └── nginx.conf         <span class="cm"># ← Config reverse proxy</span>
+├── docker-compose.yml     <span class="cm"># ← Dev + Prod</span>
+├── docker-compose.prod.yml
+├── .env                   <span class="cm"># Variables locales (gitignore)</span>
+└── .github/
+    └── workflows/
+        └── <span class="var">deploy.yml</span>     <span class="cm"># ← Pipeline CI/CD</span></code></pre>
+    </div>
+  </section>
+
+  <!-- CHAPITRE 1 : DOCKER -->
+  <section class="chapter" id="ch1">
+    <div class="chapter-header">
+      <div class="chapter-num">01</div>
+      <h2>Dockerisation des applications</h2>
+    </div>
+
+    <p>Un <strong>Dockerfile</strong> est une recette qui décrit comment construire une image Docker. Chaque instruction crée une couche (layer) dans l'image finale. Plus les couches sont optimisées, plus l'image est légère et le build rapide.</p>
+
+    <div class="callout info">
+      <div class="callout-title">💡 Concept clé — Multi-stage build</div>
+      <p>On va utiliser le <strong>multi-stage build</strong> : plusieurs étapes dans un seul Dockerfile. On compile dans une image lourde (Node), puis on copie uniquement le résultat dans une image légère (Alpine). Résultat : image finale 10x plus petite.</p>
+    </div>
+
+    <h3 id="ch1-nestjs">Dockerfile — NestJS Backend</h3>
+
+    <p>Le backend NestJS est une API REST. On compile le TypeScript en JavaScript, puis on n'embarque que le code compilé en production.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="filename">backend/Dockerfile</span><span class="lang-badge">dockerfile</span></div>
+      <pre><code><span class="cm"># ─────────────────────────────────────────────
+# STAGE 1 : builder — compile TypeScript → JS
+# ─────────────────────────────────────────────</span>
+<span class="kw">FROM</span> node:<span class="num">20-alpine</span> <span class="kw">AS</span> builder
+
+<span class="cm"># Définit le répertoire de travail dans le container</span>
+<span class="kw">WORKDIR</span> /app
+
+<span class="cm"># Copie d'abord les fichiers package pour exploiter le cache Docker</span>
+<span class="cm"># Si package.json n'a pas changé → npm install depuis le cache</span>
+<span class="kw">COPY</span> package*.json ./
+
+<span class="cm"># Installation de TOUTES les dépendances (dev + prod)</span>
+<span class="kw">RUN</span> npm ci
+
+<span class="cm"># Copie le reste du code source</span>
+<span class="kw">COPY</span> . .
+
+<span class="cm"># Compile TypeScript → dist/</span>
+<span class="kw">RUN</span> npm run build
+
+<span class="cm"># ─────────────────────────────────────────────
+# STAGE 2 : production — image finale légère
+# ─────────────────────────────────────────────</span>
+<span class="kw">FROM</span> node:<span class="num">20-alpine</span> <span class="kw">AS</span> production
+
+<span class="cm"># Variable d'environnement NODE_ENV</span>
+<span class="kw">ENV</span> NODE_ENV=production
+
+<span class="kw">WORKDIR</span> /app
+
+<span class="cm"># Copie uniquement les dépendances de production</span>
+<span class="kw">COPY</span> package*.json ./
+<span class="kw">RUN</span> npm ci --only=production
+
+<span class="cm"># Copie le code compilé depuis le stage "builder"</span>
+<span class="kw">COPY</span> --from=builder /app/dist ./dist
+
+<span class="cm"># Expose le port de l'API NestJS</span>
+<span class="kw">EXPOSE</span> <span class="num">3000</span>
+
+<span class="cm"># Commande de démarrage</span>
+<span class="kw">CMD</span> [<span class="str">"node"</span>, <span class="str">"dist/main"</span>]</code></pre>
+    </div>
+
+    <div class="callout tip">
+      <div class="callout-title">✅ Bonne pratique — Ordre des COPY</div>
+      <p>On copie <strong>package.json avant le code source</strong>. Ainsi, Docker réutilise le cache de <span class="inline-code">npm install</span> tant que les dépendances ne changent pas. Un build typique passe de 60s à 5s grâce à ça.</p>
+    </div>
+
+    <h3 id="ch1-react">Dockerfile — React Frontend</h3>
+
+    <p>Le frontend React sera compilé en fichiers statiques HTML/CSS/JS. En production, on n'a pas besoin de Node.js : on sert juste ces fichiers via Nginx.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="filename">frontend/Dockerfile</span><span class="lang-badge">dockerfile</span></div>
+      <pre><code><span class="cm"># ─────────────────────────────────────────────
+# STAGE 1 : builder — compile React → fichiers statiques
+# ─────────────────────────────────────────────</span>
+<span class="kw">FROM</span> node:<span class="num">20-alpine</span> <span class="kw">AS</span> builder
+
+<span class="kw">WORKDIR</span> /app
+
+<span class="cm"># Arguments de build passés depuis docker-compose</span>
+<span class="kw">ARG</span> VITE_API_URL
+<span class="kw">ENV</span> VITE_API_URL=$VITE_API_URL
+
+<span class="kw">COPY</span> package*.json ./
+<span class="kw">RUN</span> npm ci
+
+<span class="kw">COPY</span> . .
+
+<span class="cm"># Vite compile → crée le dossier dist/</span>
+<span class="kw">RUN</span> npm run build
+
+<span class="cm"># ─────────────────────────────────────────────
+# STAGE 2 : Nginx sert les fichiers statiques
+# ─────────────────────────────────────────────</span>
+<span class="kw">FROM</span> nginx:<span class="num">alpine</span> <span class="kw">AS</span> production
+
+<span class="cm"># Copie nos fichiers compilés vers le répertoire Nginx</span>
+<span class="kw">COPY</span> --from=builder /app/dist /usr/share/nginx/html
+
+<span class="cm"># Copie notre config Nginx personnalisée</span>
+<span class="kw">COPY</span> nginx.conf /etc/nginx/conf.d/default.conf
+
+<span class="kw">EXPOSE</span> <span class="num">80</span>
+
+<span class="cm"># Nginx démarre en foreground (obligatoire pour Docker)</span>
+<span class="kw">CMD</span> [<span class="str">"nginx"</span>, <span class="str">"-g"</span>, <span class="str">"daemon off;"</span>]</code></pre>
+    </div>
+
+    <h3 id="ch1-nginx">Configuration Nginx pour React (SPA)</h3>
+
+    <p>React est une Single Page Application (SPA). Toutes les routes doivent rediriger vers <span class="inline-code">index.html</span>, sinon un refresh sur <span class="inline-code">/dashboard</span> renvoie une 404.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="filename">frontend/nginx.conf</span><span class="lang-badge">nginx</span></div>
+      <pre><code>server {
+    listen <span class="num">80</span>;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    <span class="cm"># Activer la compression gzip → pages 3x plus légères</span>
+    gzip on;
+    gzip_types text/plain text/css application/json
+               application/javascript text/xml application/xml
+               application/xml+rss text/javascript;
+
+    <span class="cm"># Cache agressif pour les assets (JS/CSS avec hash dans le nom)</span>
+    location ~* \.(js|css|png|jpg|gif|ico|woff2)$ {
+        expires <span class="num">1y</span>;
+        add_header Cache-Control <span class="str">"public, immutable"</span>;
+    }
+
+    <span class="cm"># CRITIQUE pour React Router : renvoyer index.html pour toutes les routes</span>
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}</code></pre>
+    </div>
+
+    <div class="callout warn">
+      <div class="callout-title">⚠️ Erreur classique</div>
+      <p>Sans <span class="inline-code">try_files $uri $uri/ /index.html</span>, naviguer directement sur <span class="inline-code">https://monapp.com/users/123</span> renvoie une erreur 404 Nginx. React Router gère les routes côté client — Nginx doit toujours servir index.html.</p>
+    </div>
+
+    <h3>Tester les images Docker seules</h3>
+
+    <div class="code-block">
+      <div class="code-header"><span class="filename">terminal</span><span class="lang-badge">bash</span></div>
+      <pre><code><span class="cm"># Construire l'image NestJS</span>
+docker build -t monapp-backend ./backend
+
+<span class="cm"># Lancer le backend seul pour tester</span>
+docker run -p <span class="num">3000</span>:<span class="num">3000</span> \
+  -e DATABASE_URL=<span class="str">"postgresql://user:pass@localhost/db"</span> \
+  monapp-backend
+
+<span class="cm"># Construire l'image React</span>
+docker build -t monapp-frontend \
+  --build-arg VITE_API_URL=http://localhost:3000 \
+  ./frontend
+
+<span class="cm"># Lancer le frontend seul</span>
+docker run -p <span class="num">8080</span>:<span class="num">80</span> monapp-frontend
+
+<span class="cm"># Voir la taille des images créées</span>
+docker images | grep monapp</code></pre>
+    </div>
+  </section>
+
+  <!-- CHAPITRE 2 : DOCKER COMPOSE -->
+  <section class="chapter" id="ch2">
+    <div class="chapter-header">
+      <div class="chapter-num">02</div>
+      <h2>Docker Compose — Orchestration multi-services</h2>
+    </div>
+
+    <p>Docker Compose permet de définir et lancer plusieurs containers en une seule commande. On va créer deux fichiers : un pour le développement (avec hot-reload) et un pour la production.</p>
+
+    <h3 id="ch2-dev">Environnement de développement</h3>
+    <p>En dev, on monte le code source comme volume. Chaque modification déclenche automatiquement un rechargement.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="filename">docker-compose.yml  (développement)</span><span class="lang-badge">yaml</span></div>
+      <pre><code>version: <span class="str">'3.9'</span>
+
+services:
+  <span class="cm"># ─────────────────────────────────────────────
+  # Base de données PostgreSQL
+  # ─────────────────────────────────────────────</span>
+  postgres:
+    image: postgres:<span class="num">16-alpine</span>
+    container_name: monapp_db_dev
+    <span class="var">environment</span>:
+      POSTGRES_USER: <span class="str">${DB_USER}</span>
+      POSTGRES_PASSWORD: <span class="str">${DB_PASSWORD}</span>
+      POSTGRES_DB: <span class="str">${DB_NAME}</span>
+    <span class="var">ports</span>:
+      - <span class="str">"5432:5432"</span>          <span class="cm"># Exposé pour accès via pgAdmin local</span>
+    <span class="var">volumes</span>:
+      - postgres_data:/var/lib/postgresql/data
+    <span class="var">healthcheck</span>:             <span class="cm"># Attend que Postgres soit vraiment prêt</span>
+      test: [<span class="str">"CMD-SHELL"</span>, <span class="str">"pg_isready -U ${DB_USER}"</span>]
+      interval: <span class="num">5s</span>
+      timeout: <span class="num">5s</span>
+      retries: <span class="num">5</span>
+
+  <span class="cm"># ─────────────────────────────────────────────
+  # Backend NestJS (hot-reload avec ts-node)
+  # ─────────────────────────────────────────────</span>
+  backend:
+    build:
+      context: ./backend
+      target: builder       <span class="cm"># Utilise seulement le stage builder en dev</span>
+    container_name: monapp_api_dev
+    command: npm run start:dev   <span class="cm"># NestJS watch mode</span>
+    <span class="var">environment</span>:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://<span class="str">${DB_USER}</span>:<span class="str">${DB_PASSWORD}</span>@postgres:<span class="num">5432</span>/<span class="str">${DB_NAME}</span>
+      JWT_SECRET: <span class="str">${JWT_SECRET}</span>
+      PORT: <span class="num">3000</span>
+    <span class="var">ports</span>:
+      - <span class="str">"3000:3000"</span>
+      - <span class="str">"9229:9229"</span>          <span class="cm"># Port debug Node.js</span>
+    <span class="var">volumes</span>:
+      - ./backend:/app       <span class="cm"># Montage du code source → hot-reload</span>
+      - /app/node_modules    <span class="cm"># Exclut node_modules du montage (performance)</span>
+    <span class="var">depends_on</span>:
+      postgres:
+        condition: service_healthy  <span class="cm"># Attend que Postgres soit healthy</span>
+
+  <span class="cm"># ─────────────────────────────────────────────
+  # Frontend React (Vite dev server)
+  # ─────────────────────────────────────────────</span>
+  frontend:
+    build:
+      context: ./frontend
+      target: builder
+    container_name: monapp_ui_dev
+    command: npm run dev -- --host  <span class="cm"># --host expose Vite hors du container</span>
+    <span class="var">environment</span>:
+      VITE_API_URL: http://localhost:<span class="num">3000</span>
+    <span class="var">ports</span>:
+      - <span class="str">"5173:5173"</span>          <span class="cm"># Port par défaut de Vite</span>
+    <span class="var">volumes</span>:
+      - ./frontend:/app
+      - /app/node_modules
+
+<span class="var">volumes</span>:
+  postgres_data:            <span class="cm"># Volume nommé → données persistantes</span></code></pre>
+    </div>
+
+    <h3 id="ch2-prod">Environnement de production</h3>
+
+    <div class="code-block">
+      <div class="code-header"><span class="filename">docker-compose.prod.yml  (production)</span><span class="lang-badge">yaml</span></div>
+      <pre><code>version: <span class="str">'3.9'</span>
+
+services:
+  <span class="cm"># ─────────────────────────────────────────────
+  # Nginx — Reverse proxy principal
+  # ─────────────────────────────────────────────</span>
+  nginx:
+    image: nginx:<span class="num">alpine</span>
+    container_name: monapp_nginx
+    <span class="var">ports</span>:
+      - <span class="str">"80:80"</span>
+      - <span class="str">"443:443"</span>
+    <span class="var">volumes</span>:
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./certbot/conf:/etc/letsencrypt:ro      <span class="cm"># Certificats SSL</span>
+      - ./certbot/www:/var/www/certbot:ro
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
+
+  <span class="cm"># ─────────────────────────────────────────────
+  # Backend NestJS — image de production
+  # ─────────────────────────────────────────────</span>
+  backend:
+    image: <span class="str">${DOCKER_USERNAME}</span>/monapp-backend:<span class="str">${IMAGE_TAG:-latest}</span>
+    container_name: monapp_api
+    <span class="var">environment</span>:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://<span class="str">${DB_USER}</span>:<span class="str">${DB_PASSWORD}</span>@postgres:<span class="num">5432</span>/<span class="str">${DB_NAME}</span>
+      JWT_SECRET: <span class="str">${JWT_SECRET}</span>
+      PORT: <span class="num">3000</span>
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    <span class="var">deploy</span>:
+      resources:
+        limits:
+          memory: <span class="num">512M</span>        <span class="cm"># Limite RAM par container</span>
+          cpus: <span class="str">'0.5'</span>
+
+  <span class="cm"># ─────────────────────────────────────────────
+  # Frontend React — servi par Nginx interne
+  # ─────────────────────────────────────────────</span>
+  frontend:
+    image: <span class="str">${DOCKER_USERNAME}</span>/monapp-frontend:<span class="str">${IMAGE_TAG:-latest}</span>
+    container_name: monapp_ui
+    restart: unless-stopped
+
+  <span class="cm"># ─────────────────────────────────────────────
+  # PostgreSQL
+  # ─────────────────────────────────────────────</span>
+  postgres:
+    image: postgres:<span class="num">16-alpine</span>
+    container_name: monapp_db
+    <span class="var">environment</span>:
+      POSTGRES_USER: <span class="str">${DB_USER}</span>
+      POSTGRES_PASSWORD: <span class="str">${DB_PASSWORD}</span>
+      POSTGRES_DB: <span class="str">${DB_NAME}</span>
+    <span class="var">volumes</span>:
+      - postgres_data:/var/lib/postgresql/data
+    <span class="var">healthcheck</span>:
+      test: [<span class="str">"CMD-SHELL"</span>, <span class="str">"pg_isready -U ${DB_USER}"</span>]
+      interval: <span class="num">10s</span>
+      timeout: <span class="num">5s</span>
+      retries: <span class="num">5</span>
+    restart: unless-stopped
+    <span class="cm"># En prod : PAS de port exposé vers l'extérieur</span>
+    <span class="cm"># Seulement accessible depuis le réseau Docker interne</span>
+
+<span class="var">volumes</span>:
+  postgres_data:
+
+<span class="var">networks</span>:
+  default:
+    name: monapp_network</code></pre>
+    </div>
+
+    <h3>Nginx en production — Reverse Proxy complet</h3>
+
+    <div class="code-block">
+      <div class="code-header"><span class="filename">nginx/nginx.prod.conf</span><span class="lang-badge">nginx</span></div>
+      <pre><code>events {
+    worker_connections <span class="num">1024</span>;
+}
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+
+    <span class="cm"># Logs</span>
+    access_log /var/log/nginx/access.log;
+    error_log  /var/log/nginx/error.log;
+
+    <span class="cm"># Performance</span>
+    sendfile        on;
+    keepalive_timeout <span class="num">65</span>;
+    gzip on;
+    gzip_types text/plain text/css application/json
+               application/javascript text/xml application/xml;
+
+    <span class="cm"># Redirect HTTP → HTTPS</span>
+    server {
+        listen <span class="num">80</span>;
+        server_name <span class="var">monapp.com www.monapp.com</span>;
+
+        <span class="cm"># Chemin pour la vérification Let's Encrypt</span>
+        location /.well-known/acme-challenge/ {
+            root /var/www/certbot;
+        }
+
+        location / {
+            return <span class="num">301</span> https://$host$request_uri;
+        }
+    }
+
+    <span class="cm"># Serveur HTTPS principal</span>
+    server {
+        listen <span class="num">443</span> ssl http2;
+        server_name <span class="var">monapp.com www.monapp.com</span>;
+
+        <span class="cm"># Certificats SSL</span>
+        ssl_certificate     /etc/letsencrypt/live/monapp.com/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/monapp.com/privkey.pem;
+        ssl_protocols       TLSv1.2 TLSv1.3;
+        ssl_ciphers         HIGH:!aNULL:!MD5;
+
+        <span class="cm"># Headers de sécurité</span>
+        add_header X-Frame-Options DENY;
+        add_header X-Content-Type-Options nosniff;
+        add_header Strict-Transport-Security <span class="str">"max-age=31536000"</span> always;
+
+        <span class="cm"># API → NestJS backend</span>
+        location /api/ {
+            proxy_pass http://backend:<span class="num">3000</span>/;
+            proxy_http_version <span class="num">1.1</span>;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection <span class="str">'upgrade'</span>;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_cache_bypass $http_upgrade;
+        }
+
+        <span class="cm"># Frontend React — fichiers statiques</span>
+        location / {
+            proxy_pass http://frontend:<span class="num">80</span>/;
+            proxy_set_header Host $host;
+        }
+    }
+}</code></pre>
+    </div>
+
+    <h3 id="ch2-env">Variables d'environnement</h3>
+
+    <div class="code-block">
+      <div class="code-header"><span class="filename">.env  (jamais commité — ajouté dans .gitignore)</span><span class="lang-badge">env</span></div>
+      <pre><code><span class="cm"># Base de données</span>
+<span class="env">DB_USER</span>=monapp_user
+<span class="env">DB_PASSWORD</span>=SuperMotDePasseSecret123
+<span class="env">DB_NAME</span>=monapp_production
+
+<span class="cm"># JWT</span>
+<span class="env">JWT_SECRET</span>=uneCleTresLongueEtAleatoire64Chars
+
+<span class="cm"># Docker Hub</span>
+<span class="env">DOCKER_USERNAME</span>=tonusername
+<span class="env">IMAGE_TAG</span>=latest</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="filename">.gitignore</span><span class="lang-badge">bash</span></div>
+      <pre><code>.env
+.env.local
+.env.production
+node_modules/
+dist/</code></pre>
+    </div>
+
+    <h3>Commandes Docker Compose essentielles</h3>
+
+    <div class="code-block">
+      <div class="code-header"><span class="filename">terminal</span><span class="lang-badge">bash</span></div>
+      <pre><code><span class="cm"># ── Développement ──────────────────────────────</span>
+
+<span class="cm"># Démarrer tous les services</span>
+docker compose up -d
+
+<span class="cm"># Voir les logs en temps réel</span>
+docker compose logs -f backend
+
+<span class="cm"># Reconstruire une image après modification du Dockerfile</span>
+docker compose build backend
+docker compose up -d backend
+
+<span class="cm"># Arrêter sans supprimer les volumes</span>
+docker compose down
+
+<span class="cm"># Supprimer volumes (reset BDD)</span>
+docker compose down -v
+
+
+<span class="cm"># ── Production ─────────────────────────────────</span>
+
+<span class="cm"># Démarrer en production</span>
+docker compose -f docker-compose.prod.yml up -d
+
+<span class="cm"># Mettre à jour un service sans downtime</span>
+docker compose -f docker-compose.prod.yml up -d --no-deps backend
+
+<span class="cm"># Voir l'état de tous les containers</span>
+docker compose ps
+
+<span class="cm"># Exécuter une commande dans un container (ex: migrations)</span>
+docker compose exec backend npm run migration:run</code></pre>
+    </div>
+  </section>
+
+  <!-- CHAPITRE 3 : CI/CD -->
+  <section class="chapter" id="ch3">
+    <div class="chapter-header">
+      <div class="chapter-num">03</div>
+      <h2>Pipeline CI/CD avec GitHub Actions</h2>
+    </div>
+
+    <p>GitHub Actions permet d'automatiser le build, les tests et le déploiement à chaque push. Le pipeline s'exécute dans un environnement isolé géré par GitHub.</p>
+
+    <div class="diagram">
+<pre><span class="d-blue">git push main</span>
+      │
+      ▼
+<span class="d-green">┌─────────────────────────────────────────────────────────┐</span>
+<span class="d-green">│               GitHub Actions Pipeline                   │</span>
+<span class="d-green">│                                                         │</span>
+<span class="d-green">│  Job 1: test          Job 2: build         Job 3: deploy│</span>
+<span class="d-green">│  ┌──────────────┐     ┌──────────────┐     ┌─────────┐  │</span>
+<span class="d-green">│  │ npm test     │ ──▶ │ docker build │ ──▶ │ SSH VPS │  │</span>
+<span class="d-green">│  │ lint         │     │ docker push  │     │ pull    │  │</span>
+<span class="d-green">│  └──────────────┘     └──────────────┘     │ restart │  │</span>
+<span class="d-green">│                        Docker Hub           └─────────┘  │</span>
+<span class="d-green">└─────────────────────────────────────────────────────────┘</span>
+                                                    │
+                                                    ▼
+                                          <span class="d-orange">VPS en production</span>
+                                          <span class="d-orange">Mise à jour auto ✓</span></pre>
+    </div>
+
+    <h3 id="ch3-build">Configuration des secrets GitHub</h3>
+    <p>Avant de créer le pipeline, il faut ajouter les secrets dans GitHub : <strong>Settings → Secrets and variables → Actions</strong></p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Secret</th>
+            <th>Description</th>
+            <th>Exemple</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="inline-code">DOCKER_USERNAME</span></td>
+            <td>Votre username Docker Hub</td>
+            <td>tonusername</td>
+          </tr>
+          <tr>
+            <td><span class="inline-code">DOCKER_PASSWORD</span></td>
+            <td>Token Docker Hub (pas le mot de passe)</td>
+            <td>dckr_pat_xxxx</td>
+          </tr>
+          <tr>
+            <td><span class="inline-code">VPS_HOST</span></td>
+            <td>IP ou domaine du serveur</td>
+            <td>192.168.1.100</td>
+          </tr>
+          <tr>
+            <td><span class="inline-code">VPS_USER</span></td>
+            <td>Utilisateur SSH du serveur</td>
+            <td>deploy</td>
+          </tr>
+          <tr>
+            <td><span class="inline-code">VPS_SSH_KEY</span></td>
+            <td>Clé privée SSH (contenu de id_rsa)</td>
+            <td>-----BEGIN RSA...</td>
+          </tr>
+          <tr>
+            <td><span class="inline-code">VPS_PORT</span></td>
+            <td>Port SSH (22 par défaut)</td>
+            <td>22</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="ch3-push">Le pipeline complet — deploy.yml</h3>
+
+    <div class="code-block">
+      <div class="code-header"><span class="filename">.github/workflows/deploy.yml</span><span class="lang-badge">yaml</span></div>
+      <pre><code>name: CI/CD Pipeline — Build, Test & Deploy
+
+<span class="cm"># Déclencheurs</span>
+on:
+  push:
+    branches: [main]         <span class="cm"># Déclenché à chaque push sur main</span>
+  pull_request:
+    branches: [main]         <span class="cm"># Tests sur les PRs (sans déploiement)</span>
+
+<span class="cm"># Variables globales</span>
+env:
+  REGISTRY: docker.io
+  BACKEND_IMAGE: <span class="str">${{ secrets.DOCKER_USERNAME }}</span>/monapp-backend
+  FRONTEND_IMAGE: <span class="str">${{ secrets.DOCKER_USERNAME }}</span>/monapp-frontend
+
+jobs:
+  <span class="cm"># ─────────────────────────────────────────────
+  # JOB 1 : Tests backend
+  # ─────────────────────────────────────────────</span>
+  test-backend:
+    name: 🧪 Tests Backend
+    runs-on: ubuntu-latest
+
+    services:
+      <span class="cm"># Lance PostgreSQL pour les tests d'intégration</span>
+      postgres:
+        image: postgres:<span class="num">16</span>
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test_db
+        ports: [<span class="str">"5432:5432"</span>]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: <span class="str">'20'</span>
+          cache: <span class="str">'npm'</span>
+          cache-dependency-path: backend/package-lock.json
+
+      - name: 📦 Install dependencies
+        run: npm ci
+        working-directory: backend
+
+      - name: 🔍 Lint
+        run: npm run lint
+        working-directory: backend
+
+      - name: 🧪 Run tests
+        run: npm run test
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+          JWT_SECRET: test-secret-key
+          NODE_ENV: test
+
+      - name: 📊 Test coverage
+        run: npm run test:cov
+        working-directory: backend
+
+  <span class="cm"># ─────────────────────────────────────────────
+  # JOB 2 : Tests frontend
+  # ─────────────────────────────────────────────</span>
+  test-frontend:
+    name: 🎨 Tests Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: <span class="str">'20'</span>
+          cache: <span class="str">'npm'</span>
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+        working-directory: frontend
+
+      - run: npm run lint
+        working-directory: frontend
+
+      - run: npm run test
+        working-directory: frontend
+
+      - name: 🏗️ Test build
+        run: npm run build
+        working-directory: frontend
+        env:
+          VITE_API_URL: http://api.example.com
+
+  <span class="cm"># ─────────────────────────────────────────────
+  # JOB 3 : Build & Push images Docker
+  # Seulement sur push (pas sur les PRs)
+  # ─────────────────────────────────────────────</span>
+  build-and-push:
+    name: 🐳 Build & Push Docker
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-frontend]  <span class="cm"># Lance uniquement si les tests passent</span>
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    outputs:
+      image-tag: <span class="str">${{ steps.meta.outputs.version }}</span>
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 🔑 Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: <span class="str">${{ secrets.DOCKER_USERNAME }}</span>
+          password: <span class="str">${{ secrets.DOCKER_PASSWORD }}</span>
+
+      - name: 🏷️ Generate image tags
+        id: meta
+        run: |
+          <span class="cm"># Tag = SHA court du commit (ex: abc1234)</span>
+          echo "version=<span class="str">${GITHUB_SHA::7}</span>" >> $GITHUB_OUTPUT
+          echo "Image tag: <span class="str">${GITHUB_SHA::7}</span>"
+
+      - name: 🏗️ Build & Push Backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            <span class="str">${{ env.BACKEND_IMAGE }}:latest</span>
+            <span class="str">${{ env.BACKEND_IMAGE }}:${{ steps.meta.outputs.version }}</span>
+          cache-from: type=gha    <span class="cm"># Cache GitHub Actions (accélère le build)</span>
+          cache-to: type=gha,mode=max
+
+      - name: 🏗️ Build & Push Frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          build-args: |
+            VITE_API_URL=https://monapp.com/api
+          tags: |
+            <span class="str">${{ env.FRONTEND_IMAGE }}:latest</span>
+            <span class="str">${{ env.FRONTEND_IMAGE }}:${{ steps.meta.outputs.version }}</span>
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  <span class="cm"># ─────────────────────────────────────────────
+  # JOB 4 : Déploiement sur le VPS
+  # ─────────────────────────────────────────────</span>
+  deploy:
+    name: 🚀 Deploy to Production
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    environment: production   <span class="cm"># Environnement GitHub avec protection</span>
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 📤 Copy docker-compose to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: <span class="str">${{ secrets.VPS_HOST }}</span>
+          username: <span class="str">${{ secrets.VPS_USER }}</span>
+          key: <span class="str">${{ secrets.VPS_SSH_KEY }}</span>
+          port: <span class="str">${{ secrets.VPS_PORT }}</span>
+          source: <span class="str">"docker-compose.prod.yml,nginx/"</span>
+          target: <span class="str">"/opt/monapp"</span>
+
+      - name: 🚀 Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: <span class="str">${{ secrets.VPS_HOST }}</span>
+          username: <span class="str">${{ secrets.VPS_USER }}</span>
+          key: <span class="str">${{ secrets.VPS_SSH_KEY }}</span>
+          port: <span class="str">${{ secrets.VPS_PORT }}</span>
+          script: |
+            cd /opt/monapp
+
+            <span class="cm"># Pull les nouvelles images</span>
+            docker compose -f docker-compose.prod.yml pull
+
+            <span class="cm"># Démarrer/redémarrer les services</span>
+            docker compose -f docker-compose.prod.yml up -d \
+              --remove-orphans
+
+            <span class="cm"># Exécuter les migrations (si TypeORM)</span>
+            docker compose -f docker-compose.prod.yml exec -T \
+              backend npm run migration:run
+
+            <span class="cm"># Supprimer les anciennes images</span>
+            docker image prune -f
+
+            echo "✅ Déploiement réussi !"</code></pre>
+    </div>
+
+    <div class="callout tip">
+      <div class="callout-title">✅ Stratégie de tagging</div>
+      <p>On utilise deux tags : <span class="inline-code">:latest</span> et <span class="inline-code">:abc1234</span> (SHA du commit). Ainsi, on peut facilement <strong>rollback</strong> vers une version précédente avec <span class="inline-code">docker pull monapp-backend:abc1234</span>.</p>
+    </div>
+  </section>
+
+  <!-- CHAPITRE 4 : VPS -->
+  <section class="chapter" id="ch4">
+    <div class="chapter-header">
+      <div class="chapter-num">04</div>
+      <h2>Configuration du serveur VPS</h2>
+    </div>
+
+    <p>On configure ici un VPS Ubuntu 22.04 (DigitalOcean, OVH, Hetzner…). L'objectif : préparer le serveur pour recevoir notre application Docker.</p>
+
+    <h3 id="ch4-ssh">Installation de Docker sur le VPS</h3>
+
+    <div class="code-block">
+      <div class="code-header"><span class="filename">terminal (sur le VPS via SSH)</span><span class="lang-badge">bash</span></div>
+      <pre><code><span class="cm"># 1. Mettre à jour le système</span>
+sudo apt update && sudo apt upgrade -y
+
+<span class="cm"># 2. Installer les dépendances</span>
+sudo apt install -y ca-certificates curl gnupg
+
+<span class="cm"># 3. Ajouter le repo officiel Docker</span>
+sudo install -m <span class="num">0755</span> -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
+  sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+
+echo \
+  <span class="str">"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+  https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable"</span> | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+<span class="cm"># 4. Installer Docker Engine + Compose</span>
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io \
+                    docker-buildx-plugin docker-compose-plugin
+
+<span class="cm"># 5. Ajouter l'utilisateur deploy au groupe docker</span>
+sudo usermod -aG docker deploy
+
+<span class="cm"># 6. Vérifier l'installation</span>
+docker --version
+docker compose version</code></pre>
+    </div>
+
+    <h3>Créer l'utilisateur de déploiement</h3>
+
+    <div class="code-block">
+      <div class="code-header"><span class="filename">terminal (en root sur le VPS)</span><span class="lang-badge">bash</span></div>
+      <pre><code><span class="cm"># Créer un utilisateur dédié au déploiement</span>
+adduser deploy
+usermod -aG sudo deploy
+usermod -aG docker deploy
+
+<span class="cm"># Créer le dossier SSH</span>
+mkdir -p /home/deploy/.ssh
+chmod <span class="num">700</span> /home/deploy/.ssh
+
+<span class="cm"># Générer une paire de clés SSH pour le CI/CD</span>
+<span class="cm"># (sur votre machine locale, pas sur le VPS)</span>
+ssh-keygen -t ed25519 -C <span class="str">"github-actions-deploy"</span> -f deploy_key
+
+<span class="cm"># Copier la clé PUBLIQUE sur le VPS</span>
+cat deploy_key.pub >> /home/deploy/.ssh/authorized_keys
+chmod <span class="num">600</span> /home/deploy/.ssh/authorized_keys
+chown -R deploy:deploy /home/deploy/.ssh
+
+<span class="cm"># La clé PRIVÉE (deploy_key) va dans les secrets GitHub</span>
+<span class="cm"># Settings → Secrets → VPS_SSH_KEY = contenu de deploy_key</span>
+
+<span class="cm"># Créer le dossier de l'application</span>
+mkdir -p /opt/monapp
+chown -R deploy:deploy /opt/monapp</code></pre>
+    </div>
+
+    <h3>Créer le fichier .env sur le VPS</h3>
+
+    <div class="code-block">
+      <div class="code-header"><span class="filename">terminal (sur le VPS, en tant que deploy)</span><span class="lang-badge">bash</span></div>
+      <pre><code>nano /opt/monapp/.env</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="filename">/opt/monapp/.env  (sur le VPS)</span><span class="lang-badge">env</span></div>
+      <pre><code><span class="env">DB_USER</span>=monapp_user
+<span class="env">DB_PASSWORD</span>=MotDePasseTresSecurise!2024
+<span class="env">DB_NAME</span>=monapp_production
+<span class="env">JWT_SECRET</span>=cleJWTde64CaracteresAleatoiresOuPlus
+<span class="env">DOCKER_USERNAME</span>=tonusername
+<span class="env">IMAGE_TAG</span>=latest</code></pre>
+    </div>
+
+    <h3 id="ch4-ssl">Certificat SSL avec Let's Encrypt</h3>
+
+    <p>On utilise <strong>Certbot</strong> pour obtenir un certificat SSL gratuit automatiquement renouvelé.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="filename">terminal (sur le VPS)</span><span class="lang-badge">bash</span></div>
+      <pre><code><span class="cm"># S'assurer que le port 80 est libre avant</span>
+sudo docker compose down
+
+<span class="cm"># Installer Certbot</span>
+sudo apt install -y certbot
+
+<span class="cm"># Obtenir le certificat (remplacer par votre domaine)</span>
+sudo certbot certonly --standalone \
+  -d monapp.com \
+  -d www.monapp.com \
+  --email ton@email.com \
+  --agree-tos \
+  --non-interactive
+
+<span class="cm"># Vérifier les certificats</span>
+sudo ls /etc/letsencrypt/live/monapp.com/
+
+<span class="cm"># Créer les dossiers pour Nginx</span>
+mkdir -p /opt/monapp/certbot/conf
+mkdir -p /opt/monapp/certbot/www
+
+<span class="cm"># Lier les certificats</span>
+ln -s /etc/letsencrypt/conf /opt/monapp/certbot/
+
+<span class="cm"># Tester que le certificat a bien été obtenu</span>
+sudo ls -la /etc/letsencrypt/live/monapp.com/
+<span class="cm"># fullchain.pem  ← certificat + chaîne complète (à donner à Nginx)</span>
+<span class="cm"># privkey.pem    ← clé privée (ne jamais partager)</span>
+<span class="cm"># cert.pem       ← certificat seul</span>
+<span class="cm"># chain.pem      ← chaîne intermédiaire</span></code></pre>
+    </div>
+
+    <h3 id="ch4-cron">Renouvellement automatique — Cron complet</h3>
+
+    <p>Les certificats Let's Encrypt expirent après <strong>90 jours</strong>. Certbot renouvelle automatiquement dès qu'il reste moins de 30 jours — mais encore faut-il qu'une tâche planifiée l'appelle régulièrement.</p>
+
+    <h4>Comprendre la syntaxe cron</h4>
+
+    <div class="diagram">
+<pre>  ┌──────── minute        (0-59)
+  │  ┌───── heure         (0-23)
+  │  │  ┌── jour du mois  (1-31)
+  │  │  │  ┌─ mois        (1-12)
+  │  │  │  │  ┌ jour semaine (0-7, 0=dimanche)
+  │  │  │  │  │
+  <span class="d-orange">0  0,12  *  *  *</span>    root   certbot renew --quiet
+  │  │
+  │  └─ à midi (12h)
+  └──── à minuit (0h)
+  <span class="d-green">→ S'exécute 2x par jour, tous les jours</span></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="filename">terminal (sur le VPS)</span><span class="lang-badge">bash</span></div>
+      <pre><code><span class="cm"># ── Créer le fichier cron dédié à Certbot ─────────────────</span>
+<span class="cm"># /etc/cron.d/ est lu par cron comme des crontabs système</span>
+<span class="cm"># Format : minute heure jour mois semaine USER commande</span>
+
+sudo tee /etc/cron.d/certbot-renew &lt;&lt; <span class="str">'EOF'</span>
+<span class="cm"># Renouvellement SSL — 2x par jour (recommandé par Let's Encrypt)</span>
+<span class="cm"># Certbot ne renouvelle que si le cert expire dans &lt; 30 jours</span>
+<span class="num">0 0,12</span> * * * root certbot renew --quiet --deploy-hook \
+  "docker compose -f /opt/monapp/docker-compose.prod.yml exec -T nginx nginx -s reload"
+<span class="str">EOF</span>
+
+<span class="cm"># Donner les bonnes permissions</span>
+sudo chmod <span class="num">644</span> /etc/cron.d/certbot-renew
+
+<span class="cm"># Vérifier que le fichier est correct</span>
+cat /etc/cron.d/certbot-renew</code></pre>
+    </div>
+
+    <div class="callout info">
+      <div class="callout-title">💡 --deploy-hook vs &&</div>
+      <p><span class="inline-code">--deploy-hook</span> est meilleur que <span class="inline-code">&amp;&amp;</span> : le hook ne s'exécute <strong>que si le certificat a vraiment été renouvelé</strong>. Avec <span class="inline-code">&amp;&amp;</span>, Nginx recharge inutilement même quand rien n'a changé.</p>
+    </div>
+
+    <h4>Tester le renouvellement sans risque</h4>
+
+    <div class="code-block">
+      <div class="code-header"><span class="filename">terminal (sur le VPS)</span><span class="lang-badge">bash</span></div>
+      <pre><code><span class="cm"># Dry-run : simule le renouvellement sans toucher les vrais certificats</span>
+sudo certbot renew --dry-run
+
+<span class="cm"># Résultat attendu :</span>
+<span class="cm"># - - - - - - - - - - - - - - - - - - - - -</span>
+<span class="cm"># Congratulations, all simulated renewals succeeded:</span>
+<span class="cm">#   /etc/letsencrypt/live/monapp.com/fullchain.pem (success)</span>
+
+<span class="cm"># Vérifier la date d'expiration du certificat actuel</span>
+sudo certbot certificates
+
+<span class="cm"># Résultat :</span>
+<span class="cm"># Certificate Name: monapp.com</span>
+<span class="cm">#   Domains: monapp.com www.monapp.com</span>
+<span class="cm">#   Expiry Date: 2024-10-15 (VALID: 87 days)</span>
+<span class="cm">#   Certificate Path: /etc/letsencrypt/live/monapp.com/fullchain.pem</span></code></pre>
+    </div>
+
+    <h4>Vérifier que cron tourne bien</h4>
+
+    <div class="code-block">
+      <div class="code-header"><span class="filename">terminal (sur le VPS)</span><span class="lang-badge">bash</span></div>
+      <pre><code><span class="cm"># Vérifier que le service cron est actif</span>
+sudo systemctl status cron
+
+<span class="cm"># Voir les logs des tâches cron exécutées</span>
+grep CRON /var/log/syslog | tail -<span class="num">20</span>
+
+<span class="cm"># Forcer l'exécution immédiate pour tester (sans dry-run)</span>
+sudo run-parts /etc/cron.daily
+
+<span class="cm"># Lister toutes les tâches cron actives sur le système</span>
+sudo crontab -l          <span class="cm"># crontab root</span>
+crontab -l               <span class="cm"># crontab deploy</span>
+ls -la /etc/cron.d/      <span class="cm"># fichiers cron système</span></code></pre>
+    </div>
+
+    <h4>Script de renouvellement plus robuste</h4>
+    <p>Pour les environnements critiques, on peut créer un script dédié avec logging et notification en cas d'échec.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="filename">/opt/monapp/scripts/renew-ssl.sh</span><span class="lang-badge">bash</span></div>
+      <pre><code>#!/bin/bash
+<span class="cm"># Script de renouvellement SSL avec logging et gestion d'erreur</span>
+
+LOG_FILE=<span class="str">"/var/log/certbot-renew.log"</span>
+COMPOSE_FILE=<span class="str">"/opt/monapp/docker-compose.prod.yml"</span>
+DATE=$(date +<span class="str">"%Y-%m-%d %H:%M:%S"</span>)
+
+echo <span class="str">"[$DATE] Lancement du renouvellement SSL..."</span> >> $LOG_FILE
+
+<span class="cm"># Tenter le renouvellement</span>
+certbot renew --quiet 2>> $LOG_FILE
+EXIT_CODE=$?
+
+<span class="kw">if</span> [ $EXIT_CODE -<span class="fn">eq</span> <span class="num">0</span> ]; then
+    echo <span class="str">"[$DATE] ✅ Renouvellement OK ou non nécessaire"</span> >> $LOG_FILE
+
+    <span class="cm"># Recharger Nginx uniquement si le cert a changé</span>
+    <span class="cm"># (certbot le fait via --deploy-hook mais on double la sécurité)</span>
+    docker compose -f $COMPOSE_FILE exec -T nginx nginx -s reload
+    echo <span class="str">"[$DATE] ✅ Nginx rechargé"</span> >> $LOG_FILE
+<span class="kw">else</span>
+    echo <span class="str">"[$DATE] ❌ ERREUR lors du renouvellement (code: $EXIT_CODE)"</span> >> $LOG_FILE
+
+    <span class="cm"># Optionnel : envoyer un email d'alerte</span>
+    <span class="cm"># echo "Échec renouvellement SSL" | mail -s "ALERTE SSL" ton@email.com</span>
+<span class="kw">fi</span>
+
+exit $EXIT_CODE</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="filename">terminal (sur le VPS)</span><span class="lang-badge">bash</span></div>
+      <pre><code><span class="cm"># Rendre le script exécutable</span>
+chmod +x /opt/monapp/scripts/renew-ssl.sh
+
+<span class="cm"># Mettre à jour le cron pour utiliser le script</span>
+sudo tee /etc/cron.d/certbot-renew &lt;&lt; <span class="str">'EOF'</span>
+<span class="num">0 0,12</span> * * * root /opt/monapp/scripts/renew-ssl.sh
+<span class="str">EOF</span>
+
+<span class="cm"># Tester le script manuellement</span>
+sudo /opt/monapp/scripts/renew-ssl.sh
+
+<span class="cm"># Consulter les logs</span>
+tail -f /var/log/certbot-renew.log</code></pre>
+    </div>
+
+    <div class="callout warn">
+      <div class="callout-title">⚠️ Port 80 doit être libre pendant le renouvellement</div>
+      <p>Certbot en mode <span class="inline-code">--standalone</span> a besoin du port 80 pour vérifier le domaine. Si Nginx tourne déjà sur le port 80 dans Docker, utiliser plutôt le plugin <span class="inline-code">webroot</span> qui dépose un fichier dans <span class="inline-code">/var/www/certbot</span> — c'est pourquoi on a ce volume dans le docker-compose.</p>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="filename">Renouvellement avec webroot (Nginx toujours actif)</span><span class="lang-badge">bash</span></div>
+      <pre><code><span class="cm"># Obtenir le certificat en mode webroot</span>
+<span class="cm"># (Nginx doit servir /.well-known/acme-challenge/ sur le port 80)</span>
+sudo certbot certonly --webroot \
+  -w /opt/monapp/certbot/www \
+  -d monapp.com \
+  -d www.monapp.com \
+  --email ton@email.com \
+  --agree-tos \
+  --non-interactive
+
+<span class="cm"># Le renouvellement automatique fonctionne aussi en webroot</span>
+<span class="cm"># Certbot se souvient du mode utilisé pour le 1er certificat</span></code></pre>
+    </div>
+
+    <h3>Premier déploiement manuel</h3>
+
+    <div class="code-block">
+      <div class="code-header"><span class="filename">terminal (sur le VPS)</span><span class="lang-badge">bash</span></div>
+      <pre><code>cd /opt/monapp
+
+<span class="cm"># S'identifier sur Docker Hub</span>
+docker login
+
+<span class="cm"># Lancer l'application</span>
+docker compose -f docker-compose.prod.yml up -d
+
+<span class="cm"># Vérifier que tout tourne</span>
+docker compose -f docker-compose.prod.yml ps
+
+<span class="cm"># Voir les logs</span>
+docker compose -f docker-compose.prod.yml logs -f</code></pre>
+    </div>
+  </section>
+
+  <!-- CHAPITRE 5 : MONITORING -->
+  <section class="chapter" id="ch5">
+    <div class="chapter-header">
+      <div class="chapter-num">05</div>
+      <h2>Monitoring & Logs (Bonus)</h2>
+    </div>
+
+    <p>Une app en production doit être surveillée. Voici un stack de monitoring léger avec <strong>Portainer</strong> pour gérer Docker visuellement, et des outils de logs.</p>
+
+    <h3>Portainer — Interface Web Docker</h3>
+
+    <div class="code-block">
+      <div class="code-header"><span class="filename">terminal (sur le VPS)</span><span class="lang-badge">bash</span></div>
+      <pre><code><span class="cm"># Lancer Portainer (interface graphique pour Docker)</span>
+docker run -d \
+  -p <span class="num">9443</span>:<span class="num">9443</span> \
+  --name portainer \
+  --restart=always \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v portainer_data:/data \
+  portainer/portainer-ce:latest
+
+<span class="cm"># Accéder à : https://votre-ip:9443</span></code></pre>
+    </div>
+
+    <h3>Commandes de monitoring essentielles</h3>
+
+    <div class="code-block">
+      <div class="code-header"><span class="filename">terminal</span><span class="lang-badge">bash</span></div>
+      <pre><code><span class="cm"># Voir l'utilisation CPU/RAM en temps réel</span>
+docker stats
+
+<span class="cm"># Logs d'un service avec timestamp</span>
+docker compose logs -f --timestamps backend
+
+<span class="cm"># Inspecter un container</span>
+docker inspect monapp_api
+
+<span class="cm"># Entrer dans un container (debug)</span>
+docker compose exec backend sh
+
+<span class="cm"># Voir les health checks</span>
+docker inspect --format='{{json .State.Health}}' monapp_db | jq
+
+<span class="cm"># Voir l'espace disque utilisé par Docker</span>
+docker system df</code></pre>
+    </div>
+
+    <h3>Health check dans NestJS</h3>
+
+    <div class="code-block">
+      <div class="code-header"><span class="filename">backend/src/health/health.controller.ts</span><span class="lang-badge">typescript</span></div>
+      <pre><code><span class="kw">import</span> { Controller, Get } <span class="kw">from</span> <span class="str">'@nestjs/common'</span>;
+<span class="kw">import</span> { HealthCheck, HealthCheckService, TypeOrmHealthIndicator } <span class="kw">from</span> <span class="str">'@nestjs/terminus'</span>;
+
+<span class="fn">@Controller</span>(<span class="str">'health'</span>)
+<span class="kw">export class</span> HealthController {
+  <span class="kw">constructor</span>(
+    <span class="kw">private</span> health: HealthCheckService,
+    <span class="kw">private</span> db: TypeOrmHealthIndicator,
+  ) {}
+
+  <span class="fn">@Get</span>()
+  <span class="fn">@HealthCheck</span>()
+  check() {
+    <span class="kw">return</span> <span class="kw">this</span>.health.check([
+      () => <span class="kw">this</span>.db.pingCheck(<span class="str">'database'</span>),
+    ]);
+  }
+}</code></pre>
+    </div>
+
+    <div class="callout info">
+      <div class="callout-title">💡 Utiliser le health check dans Compose</div>
+      <p>Docker peut tester automatiquement si votre API répond. Si le container est "unhealthy", Docker le redémarre seul.</p>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="filename">docker-compose.prod.yml — ajout healthcheck backend</span><span class="lang-badge">yaml</span></div>
+      <pre><code>  backend:
+    image: <span class="str">${DOCKER_USERNAME}</span>/monapp-backend:latest
+    <span class="var">healthcheck</span>:
+      test: [<span class="str">"CMD-SHELL"</span>, <span class="str">"wget -q --spider http://localhost:3000/health || exit 1"</span>]
+      interval: <span class="num">30s</span>
+      timeout: <span class="num">10s</span>
+      retries: <span class="num">3</span>
+      start_period: <span class="num">40s</span>   <span class="cm"># Temps de démarrage avant le 1er check</span>
+    restart: unless-stopped</code></pre>
+    </div>
+  </section>
+
+  <!-- CHAPITRE 6 : CHECKLIST -->
+  <section class="chapter" id="ch6">
+    <div class="chapter-header">
+      <div class="chapter-num">06</div>
+      <h2>Checklist finale — Avant de mettre en prod</h2>
+    </div>
+
+    <h3>🔒 Sécurité</h3>
+    <ol class="steps">
+      <li>Le fichier <span class="inline-code">.env</span> est dans <span class="inline-code">.gitignore</span> — jamais commité</li>
+      <li>PostgreSQL n'est <strong>pas</strong> exposé sur un port public (pas de <span class="inline-code">ports: "5432:5432"</span> en prod)</li>
+      <li>Le JWT_SECRET fait au moins 64 caractères aléatoires</li>
+      <li>HTTPS activé avec redirection HTTP → HTTPS</li>
+      <li>Headers de sécurité Nginx en place (X-Frame-Options, HSTS…)</li>
+      <li>L'utilisateur deploy n'a pas accès root inutile</li>
+    </ol>
+
+    <h3>⚡ Performance</h3>
+    <ol class="steps">
+      <li>Multi-stage build utilisé → images légères</li>
+      <li>Gzip activé dans Nginx</li>
+      <li>Cache des assets statiques (1 an pour les fichiers hashés)</li>
+      <li>Limites de ressources définies (<span class="inline-code">deploy.resources.limits</span>)</li>
+      <li>Images Docker taguées avec le SHA du commit (rollback possible)</li>
+    </ol>
+
+    <h3>🚀 CI/CD</h3>
+    <ol class="steps">
+      <li>Tests lancés avant chaque déploiement</li>
+      <li>Le déploiement ne se lance que si tous les tests passent</li>
+      <li>Les secrets GitHub sont bien configurés</li>
+      <li>L'environnement <span class="inline-code">production</span> dans GitHub a une règle de protection de branche</li>
+      <li>Les anciennes images sont purgées après déploiement</li>
+    </ol>
+
+    <h3>📊 Monitoring</h3>
+    <ol class="steps">
+      <li>Health check configuré sur le backend</li>
+      <li>Restart policy <span class="inline-code">unless-stopped</span> sur tous les services</li>
+      <li>Logs accessibles avec <span class="inline-code">docker compose logs</span></li>
+      <li>Renouvellement SSL automatique configuré (cron Certbot)</li>
+    </ol>
+
+    <div class="callout tip">
+      <div class="callout-title">🎯 Récapitulatif du flux complet</div>
+      <p>
+        <strong>1.</strong> Tu codes localement → <span class="inline-code">docker compose up</span> pour tester<br>
+        <strong>2.</strong> Tu fais un <span class="inline-code">git push main</span><br>
+        <strong>3.</strong> GitHub Actions lance les tests automatiquement<br>
+        <strong>4.</strong> Si tests OK → build des images Docker → push sur Docker Hub<br>
+        <strong>5.</strong> SSH sur le VPS → pull des nouvelles images → restart des containers<br>
+        <strong>6.</strong> L'app est mise à jour en production en quelques minutes, sans intervention manuelle
+      </p>
+    </div>
+  </section>
+
+</main>
+
+<script>
+  // Active nav link on scroll
+  const sections = document.querySelectorAll('[id]');
+  const navLinks = document.querySelectorAll('.sidebar nav a');
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navLinks.forEach(a => a.classList.remove('active'));
+        const active = document.querySelector(`.sidebar nav a[href="#${entry.target.id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-10% 0px -85% 0px' });
+
+  sections.forEach(s => observer.observe(s));
+</script>
+
+</body>
+</html>

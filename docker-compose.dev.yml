@@ -1,49 +1,78 @@
 services:
-  api:
-    build:
-      context: ./api
-      dockerfile: Dockerfile.dev
-    container_name: api_dev
-    restart: unless-stopped
-    ports:
-      - "${PORT:-3005}:${PORT:-3005}"
-    environment:
-      - DB_HOST=mysql
-      - DB_PORT=3306
-      - DB_USERNAME=${DB_USERNAME}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_NAME=${DB_NAME}
-      - JWT_SECRET=${JWT_SECRET}
-      - PORT=${PORT:-3005}
-    volumes:
-      - ./api/src:/api/src
-    depends_on:
-      mysql:
-        condition: service_healthy
-    networks:
-      - dev
+   backend:
+      build:
+         context: ./backend
+         dockerfile: Dockerfile.dev
+      container_name: backend_dev
+      restart: unless-stopped
+      ports:
+         - "${PORT:-3000}:${PORT:-3000}"
+      environment:
+         - DB_HOST=mysql
+         - DB_PORT=3306
+         - DB_USERNAME=${DB_USERNAME}
+         - DB_PASSWORD=${DB_PASSWORD}
+         - DB_NAME=${DB_NAME}
+         - JWT_SECRET=${JWT_SECRET}
+         - PORT=${PORT:-3000}
+      volumes:
+         - ./backend/src:/backend/src
+      depends_on:
+         mysql:
+            condition: service_healthy
+      networks:
+         - dev
 
-  mysql:
-    image: mysql:8
-    container_name: mysql_dev
-    restart: unless-stopped
-    environment:
-      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
-      - MYSQL_DATABASE=${DB_NAME}
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql_dev_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    networks:
-      - dev
+   front:
+      build:
+         context: ./front
+         dockerfile: Dockerfile.dev
+      container_name: front_dev
+      restart: unless-stopped
+      ports:
+         - "5173:5173"
+      environment:
+         # Inside the compose network the backend is reachable by its service name.
+         - VITE_backend_PROXY_TARGET=http://backend:3005
+      volumes:
+         - ./front:/front
+         - /front/node_modules
+      depends_on:
+         - backend
+      networks:
+         - dev
+
+   mysql:
+      image: mysql:8
+      container_name: mysql_dev
+      restart: unless-stopped
+      environment:
+         - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+         - MYSQL_DATABASE=${DB_NAME}
+      ports:
+         - "3306:3306"
+      volumes:
+         - mysql_dev_data:/var/lib/mysql
+      healthcheck:
+         test:
+            [
+               "CMD",
+               "mysqladmin",
+               "ping",
+               "-h",
+               "localhost",
+               "-u",
+               "root",
+               "-p${DB_PASSWORD}",
+            ]
+         interval: 5s
+         timeout: 5s
+         retries: 10
+      networks:
+         - dev
 
 volumes:
-  mysql_dev_data:
+   mysql_dev_data:
 
 networks:
-  dev:
+   dev:
